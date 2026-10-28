@@ -62,9 +62,23 @@ Wait until the log shows `Started IecmsApplication`. The app is now on **http://
 | Follow the background logs | `tail -f app.log` |
 | Stop the background app | `pkill -f iecms-mini-0.1.0.jar` |
 | Check it is running | `curl localhost:8080/actuator/health` (shows `"status":"UP"`) |
-| Start on another port | `mvn spring-boot:run -Dspring-boot.run.arguments=--server.port=9090` or `java -jar target/iecms-mini-0.1.0.jar --server.port=9090` |
 
-**"Port 8080 was already in use"?** Something else is on that port. On macOS or Linux, see what with `lsof -i :8080`, stop it with `kill <PID>` (the PID is in the second column), or start this app on another port as shown above. On Windows: `netstat -ano | findstr :8080`, then `taskkill /PID <PID> /F`.
+### Changing the port
+
+The app uses port **8080** by default. Pick whichever way suits you:
+
+| Way | Command | Lasts |
+|---|---|---|
+| Environment variable | `PORT=9090 mvn spring-boot:run` or `PORT=9090 java -jar target/iecms-mini-0.1.0.jar` | That run only |
+| Command-line flag | `mvn spring-boot:run -Dspring-boot.run.arguments=--server.port=9090` or `java -jar target/iecms-mini-0.1.0.jar --server.port=9090` | That run only |
+| Settings file | Change `server.port=${PORT:8080}` to `server.port=${PORT:9090}` in `src/main/resources/application.properties` | Always (until changed back) |
+| Docker | `docker run -p 9090:8080 iecms-mini` (outside port 9090, app still 8080 inside the container) | That container |
+
+On Windows PowerShell set the variable first: `$env:PORT=9090; mvn spring-boot:run`. In Command Prompt: `set PORT=9090 && mvn spring-boot:run`.
+
+Then open **http://localhost:9090** instead of 8080, and use the same port in the `curl` commands and Swagger URL.
+
+**"Port 8080 was already in use"?** Something else is on that port. On macOS or Linux, see what with `lsof -i :8080`, stop it with `kill <PID>` (the PID is in the second column), or start this app on another port (see **Changing the port**). On Windows: `netstat -ano | findstr :8080`, then `taskkill /PID <PID> /F`.
 
 Data is kept in memory, so stopping the app clears all cases. The demo users are created again on the next start.
 
