@@ -1,0 +1,56 @@
+package rw.minijust.iecms.web;
+
+import jakarta.validation.Valid;
+import java.util.Map;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.*;
+import rw.minijust.iecms.dto.Dtos.*;
+import rw.minijust.iecms.model.CaseStatus;
+import rw.minijust.iecms.service.CaseService;
+
+@RestController
+@RequestMapping("/api/v1/cases")
+@CrossOrigin(origins = "http://localhost:3000") // React/Angular dev server
+public class CaseController {
+    private final CaseService service;
+
+    public CaseController(CaseService service) {
+        this.service = service;
+    }
+
+    @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
+    public CaseResponse file(@Valid @RequestBody CreateCaseRequest req) {
+        return service.file(req);
+    }
+
+    @GetMapping
+    public Page<CaseResponse> list(@RequestParam(required = false) CaseStatus status,
+                                   @PageableDefault(size = 20, sort = "filedAt") Pageable pageable) {
+        return service.list(status, pageable);
+    }
+
+    @GetMapping("/{id}")
+    public CaseResponse get(@PathVariable Long id) {
+        return service.get(id);
+    }
+
+    @PatchMapping("/{id}/status")
+    public CaseResponse changeStatus(@PathVariable Long id, @Valid @RequestBody ChangeStatusRequest req) {
+        return service.changeStatus(id, req.status());
+    }
+
+    @PostMapping("/{id}/hearings")
+    @ResponseStatus(HttpStatus.CREATED)
+    public HearingResponse schedule(@PathVariable Long id, @Valid @RequestBody ScheduleHearingRequest req) {
+        return service.scheduleHearing(id, req);
+    }
+
+    @GetMapping("/statistics")
+    public Map<CaseStatus, Long> statistics() {
+        return service.statistics();
+    }
+}
