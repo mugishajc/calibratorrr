@@ -4,58 +4,182 @@
 
 A small Spring Boot 3 project for a senior Java developer exam: a court case API, an employee CRUD API, plain JDBC, SQL queries and common coding questions. It runs on an in-memory H2 database, so nothing needs installing beyond Java 21+ and Maven.
 
+
 ## What the project does
 
-A simplified version of a court case management system (like IECMS):
+A simplified court case management system (like IECMS), with a small web page and a secured REST API.
 
-- **File a case.** A clerk submits a title and category (civil, criminal, commercial, labour, administrative). The system gives it a case number such as `CIV/2026/00001` and status `FILED`.
+- **Sign in.** Users log in with a username and password and get a JWT token valid for 1 hour. Passwords are stored as BCrypt hashes. After 5 wrong passwords the account is locked for 15 minutes.
+- **Roles.** Each user has one role, checked on every request:
+
+  | Role | Can do |
+  |---|---|
+  | ADMIN | Everything, plus create users, read the audit log and manage employees |
+  | REGISTRAR | File cases, schedule hearings, move cases through the workflow |
+  | JUDGE | Move cases through the workflow, and is the only role that can record a judgment |
+  | VIEWER | Read cases and statistics only |
+
+- **File a case.** A registrar submits a title and category (civil, criminal, commercial, labour, administrative). The system gives it a number such as `CIV/2026/00001` and status `FILED`, and records who filed it.
 - **Move the case through its workflow.** `FILED → REGISTERED → SCHEDULED → IN_HEARING → JUDGED → CLOSED`, or `DISMISSED`. Steps cannot be skipped: an illegal move returns HTTP 409.
-- **Schedule hearings.** Adds a hearing date and courtroom to a case. Dates must be in the future, and the same courtroom cannot be booked twice for the same time.
-- **List and search cases.** Paginated, sortable, and filterable by status.
-- **Statistics.** Number of cases per status, a small data-analytics example.
-- **Manage employees.** A basic create, read, update, delete API, the classic "write a CRUD API" exam task.
+- **Schedule hearings.** Dates must be in the future, and a courtroom cannot be booked twice at the same time. After the booking is saved, an event notifies the parties in the background (logged here; SMS or email in production).
+- **List, search and statistics.** Paginated, sortable, filterable by status; counts per status are cached and refreshed whenever a case changes.
+- **Audit trail.** Every login, failed login, case filed, status change, hearing and new user is recorded with who did it and when. Admins can read it; nobody can edit it.
+- **Traceability.** Every response carries an `X-Request-Id` header, and the same id appears in every log line for that request.
 - **Safe and consistent.** Input is validated, errors come back in one standard JSON format, and `@Version` stops two users from overwriting each other's changes.
+- **Employees.** A basic create, read, update, delete API (admin only), the classic "write a CRUD API" exam task.
 
-Alongside the API there is exam practice: SQL queries that run on a sample database, short Java coding answers, "what is the output?" questions, and scenario questions with model answers.
+Alongside the app there is exam practice: SQL queries on a sample database, data structures written from scratch, short coding answers, "what is the output?" questions, and 125 questions with answers.
+
+## How to run it
+
+### 1. Install the prerequisites
+
+- **Java 21 or newer.** Check with `java -version`.
+- **Maven 3.9+.** Check with `mvn -v`.
+- **Git**, to clone the project.
+
+No database is needed: the app uses an in-memory H2 database that starts empty each time.
+
+### 2. Get the code and start the app
 
 ```bash
-mvn verify                    # run all tests + coverage check (70% minimum)
-mvn spring-boot:run           # API on http://localhost:8080, Swagger at /swagger-ui.html
+git clone https://github.com/mugishajc/calibratorrr.git
+cd calibratorrr
+mvn spring-boot:run
+```
+
+Wait until the log shows `Started IecmsApplication`. The app is now on **http://localhost:8080**. Stop it with `Ctrl+C`.
+
+To use another port: `mvn spring-boot:run -Dspring-boot.run.arguments=--server.port=9090`
+
+### 3. Use the web page (frontend)
+
+1. Open **http://localhost:8080** in your browser.
+2. Sign in with one of the demo users. All use the password **`Demo@12345`**:
+   - `registrar`: can file cases and move them along
+   - `judge`: can record judgments
+   - `admin`: can do everything
+   - `viewer`: can only look
+3. As **registrar**, type a title, choose a category and click **File case**. The case appears in the table and the counts update.
+4. Use the buttons in the **Move to** column to move a case: `REGISTERED` → `SCHEDULED` → `IN_HEARING`.
+5. Try `JUDGED` as the registrar: you get "Your role is not allowed to do this." Click **Sign out**, sign in as **judge**, and the same button works.
+6. Sign in as **viewer**: you can see everything but there are no buttons and no filing form.
+
+The page is plain HTML and JavaScript in `src/main/resources/static/index.html`, served by Spring Boot, so it needs no separate install. A React or Angular app would call the same API in the same way.
+
+### 4. Try the API in Swagger
+
+1. Open **http://localhost:8080/swagger-ui.html**.
+2. Under **auth-controller**, run `POST /api/v1/auth/login` with:
+   ```json
+   { "username": "registrar", "password": "Demo@12345" }
+   ```
+3. Copy the `accessToken` value from the response.
+4. Click **Authorize** at the top, paste the token, and click **Authorize**.
+5. Every endpoint can now be tried from the page.
+
+### 5. Or use the command line
+
+```bash
+# Log in and keep the token
+TOKEN=$(curl -s localhost:8080/api/v1/auth/login -H 'Content-Type: application/json' \
+  -d '{"username":"registrar","password":"Demo@12345"}' | sed 's/.*"accessToken":"\([^"]*\)".*/\1/')
+
+# File a case
+curl -s localhost:8080/api/v1/cases -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"title":"Land dispute","category":"CIVIL"}'
+
+# Move it along, schedule a hearing, see the list and the statistics
+curl -s -X PATCH localhost:8080/api/v1/cases/1/status -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' -d '{"status":"REGISTERED"}'
+curl -s localhost:8080/api/v1/cases/1/hearings -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' -d '{"scheduledAt":"2027-01-15T09:00:00","courtRoom":"Room A"}'
+curl -s "localhost:8080/api/v1/cases?status=SCHEDULED" -H "Authorization: Bearer $TOKEN"
+curl -s localhost:8080/api/v1/cases/statistics -H "Authorization: Bearer $TOKEN"
+
+# Without a token you get 401
+curl -i localhost:8080/api/v1/cases
+```
+
+### 6. Run the tests and the practice programs
+
+```bash
+mvn verify      # all 64 tests + coverage check (fails below 70%)
 mvn -q compile exec:java -Dexec.mainClass=rw.minijust.iecms.practice.JavaSnippets
 mvn -q compile exec:java -Dexec.mainClass=rw.minijust.iecms.practice.JdbcSqlPractice
 mvn -q compile exec:java -Dexec.mainClass=rw.minijust.iecms.practice.OutputQuestions
 ```
 
+The coverage report is in `target/site/jacoco/index.html`.
+
+### 7. Run with Docker
+
+```bash
+docker build -t iecms-mini .
+docker run -p 8080:8080 -e APP_JWT_SECRET="a-long-random-secret-of-at-least-32-characters" iecms-mini
+```
+
+Or use the image built by CI: `ghcr.io/mugishajc/calibratorrr:latest`.
+
+### Settings for a real environment
+
+| Variable | Purpose | Default |
+|---|---|---|
+| `APP_JWT_SECRET` | Key that signs login tokens, at least 32 characters. **Must** be set and kept secret. | A dev-only value |
+| `APP_DEMO_USERS_ENABLED` | Creates the four demo users on an empty database. Set to `false` in production. | `true` |
+
+## API endpoints
+
+| Method | Path | Who | What |
+|---|---|---|---|
+| POST | `/api/v1/auth/login` | anyone | Log in, returns a JWT |
+| GET | `/api/v1/auth/me` | signed in | Current user and roles |
+| POST | `/api/v1/users` | ADMIN | Create a user (strong password required) |
+| POST | `/api/v1/cases` | REGISTRAR, ADMIN | File a case |
+| GET | `/api/v1/cases?status=&page=&size=&sort=` | signed in | List cases |
+| GET | `/api/v1/cases/{id}` | signed in | One case |
+| PATCH | `/api/v1/cases/{id}/status` | REGISTRAR, JUDGE, ADMIN (JUDGED: judge only) | Move a case |
+| POST | `/api/v1/cases/{id}/hearings` | REGISTRAR, ADMIN | Schedule a hearing |
+| GET | `/api/v1/cases/statistics` | signed in | Cases per status |
+| GET | `/api/v1/audit` | ADMIN | Audit trail, newest first |
+| GET/POST/PUT/DELETE | `/api/employees` | ADMIN | Employee CRUD |
+| GET | `/actuator/health` | anyone | Health check |
+
 ## What is where
 
 | Topic | File |
 |---|---|
-| Case status workflow (FILED → REGISTERED → SCHEDULED → IN_HEARING → JUDGED → CLOSED) | `model/CaseStatus.java` |
-| JPA entities, one-to-many, `@Version` optimistic locking | `model/CourtCase.java`, `model/Hearing.java` |
-| Spring Data derived queries, `GROUP BY` statistics | `repository/CaseRepository.java` |
+| Security config, JWT signing and checking, public vs protected URLs | `security/SecurityConfig.java` |
+| Login, lockout after 5 failures, user creation | `security/AuthService.java`, `security/AuthController.java` |
+| Users and roles | `security/AppUser.java`, `security/Role.java`, `security/DemoUserSeeder.java` |
+| Audit trail | `audit/` |
+| Async notification after commit | `notification/` |
+| Caching, JPA auditing (`createdBy`), Swagger security, request ids | `config/` |
+| Case status workflow | `model/CaseStatus.java` |
+| JPA entities, one-to-many, `@Version`, `@CreatedBy` | `model/CourtCase.java`, `model/Hearing.java` |
+| Spring Data queries, `GROUP BY` statistics | `repository/CaseRepository.java` |
 | `@Transactional` service with business rules | `service/CaseService.java` |
-| REST controller: POST/GET/PATCH, pagination, CORS | `web/CaseController.java` |
+| REST controller with role checks | `web/CaseController.java` |
 | Global error handling (RFC 7807) | `web/ApiExceptionHandler.java` |
-| Validation with records | `dto/Dtos.java` |
-| CRUD API to write from memory | `employee/` |
-| Short coding questions | `practice/JavaSnippets.java` |
-| JDBC, PreparedStatement, transactions, SQL | `practice/JdbcSqlPractice.java`, `sql/queries.sql` (30 queries) |
-| "What is the output?" questions | `practice/OutputQuestions.java`, answers in `docs/JAVA_QUESTIONS.md` |
-| Scenario questions with model answers | `docs/JAVA_QUESTIONS.md` |
+| Web page | `src/main/resources/static/index.html` |
+| Employee CRUD | `employee/` |
+| Coding answers, data structures, output questions, JDBC + SQL | `practice/` |
+| 30 SQL queries | `sql/queries.sql` |
 | 125 questions and answers: OOP, core Java, data structures, algorithms, threads, SQL, JPA | `docs/QUESTIONS_AND_ANSWERS.md` |
-| Stack, queue, linked list, BST, LRU cache, binary search, sorting, BFS | `practice/DataStructures.java` |
+| Output questions, write-the-code tasks, scenario questions | `docs/JAVA_QUESTIONS.md` |
 
 ## Testing
 
-56 tests, about 94% line coverage. The build fails below 70%.
+64 tests, all run by `mvn verify` and by CI on every push. The build fails if line coverage drops below 70%.
 
 | Level | What it checks | Example |
 |---|---|---|
-| Unit (no Spring, mocks) | Business rules in isolation, runs in milliseconds | `service/CaseServiceTest` with Mockito |
+| Unit (no Spring, mocks) | Business rules, audit calls and events in isolation | `service/CaseServiceTest` with Mockito |
 | Parameterized | Every allowed and forbidden status change from one table | `CaseStatusTest.transitionRules` |
 | Web slice (`@WebMvcTest`) | HTTP status codes, validation, error format; service mocked | `web/CaseControllerTest` |
-| Integration (`@SpringBootTest`) | Full flow through controller, service, JPA and database | `CaseApiTest.fullCaseLifecycle`, `EmployeeApiTest` |
-| Data | Each practice SQL query returns the expected rows | `practice/SqlQueriesTest` |
+| Security, end to end | Real login and JWT, 401 without a token, 403 for the wrong role, judge-only judgments, lockout, weak passwords, audit trail, request ids | `AuthIntegrationTest` |
+| Integration (`@SpringBootTest`) | Full case lifecycle through controller, service, JPA and database | `CaseApiTest`, `EmployeeApiTest` |
+| Data | Each practice SQL query returns the expected rows; data structures behave correctly | `practice/SqlQueriesTest`, `practice/DataStructuresTest` |
 
 ## CI/CD
 
@@ -64,39 +188,22 @@ GitHub Actions (`.github/workflows/ci.yml`):
 1. **On every push and pull request:** build with Java 21, run all tests, enforce the coverage gate, and upload the test reports, coverage report and jar.
 2. **On push to `main` only, after tests pass:** build the Docker image (multi-stage, runs as a non-root user) and publish it to GitHub Container Registry as `ghcr.io/mugishajc/calibratorrr:latest` plus a commit-SHA tag.
 
-Dependabot opens weekly pull requests for Maven and GitHub Actions updates. A health endpoint is at `/actuator/health` for load balancers and Kubernetes probes.
-
-```bash
-docker run -p 8080:8080 ghcr.io/mugishajc/calibratorrr:latest
-```
+Dependabot opens weekly pull requests for Maven and GitHub Actions updates.
 
 ## What should be done next
 
 To take this from a demo to production:
 
-1. **Security.** Add Spring Security with JWT or OAuth2/Keycloak and roles (registrar, judge, lawyer, public). Protect every endpoint and restrict who can change a case's status.
-2. **Real database and migrations.** Move from in-memory H2 to PostgreSQL or MySQL, and manage the schema with Flyway instead of `ddl-auto=update`. Use a database sequence for case numbers so they survive restarts and work across several servers.
-3. **Audit trail.** Record who viewed or changed each case and when (Hibernate Envers or an audit table). Essential for confidential court data.
-4. **Parties and documents.** Add plaintiffs, defendants and lawyers (verified through NIDA), and document upload stored in object storage.
+1. **Real database and migrations.** Move from in-memory H2 to PostgreSQL or MySQL, and manage the schema with Flyway instead of `ddl-auto=update`. Use a database sequence for case numbers so they survive restarts and work across several servers.
+2. **Single sign-on.** Replace the built-in login with Keycloak or the government identity provider (OAuth2/OpenID Connect), add refresh tokens and token revocation, and two-factor authentication for judges and admins.
+3. **Parties and documents.** Add plaintiffs, defendants and lawyers (identity verified through NIDA), and document upload stored in object storage with virus scanning.
+4. **Real notifications.** Send SMS and email through a message queue (RabbitMQ or Kafka) with retries, instead of the log line.
 5. **Integration tests on the real database.** Use Testcontainers so tests run against the same database as production.
 6. **Deployment stage.** Add a deploy job to staging, then production with a manual approval (GitHub Environments), and zero-downtime rollout.
 7. **Code quality and security scanning.** SonarQube or SpotBugs, Checkstyle, and OWASP dependency-check or GitHub CodeQL in the pipeline.
-8. **Observability.** Structured JSON logs, metrics with Micrometer and Prometheus, dashboards in Grafana, and alerts on errors and slow requests.
-9. **Frontend.** A React or Angular app for clerks and judges, calling this API.
-10. **Notifications.** SMS or email to parties when a hearing is scheduled or moved, sent asynchronously through a message queue.
-
-## Sample requests
-
-```bash
-curl -X POST localhost:8080/api/v1/cases -H 'Content-Type: application/json' \
-  -d '{"title":"Land dispute","category":"CIVIL"}'
-curl -X PATCH localhost:8080/api/v1/cases/1/status -H 'Content-Type: application/json' -d '{"status":"REGISTERED"}'
-curl -X POST localhost:8080/api/v1/cases/1/hearings -H 'Content-Type: application/json' \
-  -d '{"scheduledAt":"2027-01-15T09:00:00","courtRoom":"Room A"}'
-curl localhost:8080/api/v1/cases/statistics
-curl -X POST localhost:8080/api/employees -H 'Content-Type: application/json' \
-  -d '{"name":"Alice","email":"alice@example.rw","department":"IT","salary":900000}'
-```
+8. **Observability.** JSON logs shipped to a central store, metrics with Micrometer and Prometheus, Grafana dashboards, and alerts on errors and slow requests.
+9. **Full frontend.** A React or Angular app with routing, forms for hearings, and audit-log views, built and tested in the same pipeline.
+10. **Distributed cache and rate limiting.** Redis for the statistics cache and for login rate limits once there is more than one server.
 
 ## Likely exam questions
 

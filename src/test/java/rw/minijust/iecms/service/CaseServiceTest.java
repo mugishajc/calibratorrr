@@ -2,6 +2,7 @@ package rw.minijust.iecms.service;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 import java.time.LocalDateTime;
@@ -12,9 +13,12 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
+import rw.minijust.iecms.audit.AuditService;
 import rw.minijust.iecms.dto.Dtos.*;
 import rw.minijust.iecms.model.CaseStatus;
 import rw.minijust.iecms.model.CourtCase;
+import rw.minijust.iecms.notification.HearingScheduledEvent;
 import rw.minijust.iecms.repository.CaseRepository;
 import rw.minijust.iecms.repository.HearingRepository;
 
@@ -23,6 +27,8 @@ import rw.minijust.iecms.repository.HearingRepository;
 class CaseServiceTest {
     @Mock CaseRepository cases;
     @Mock HearingRepository hearings;
+    @Mock AuditService audit;
+    @Mock ApplicationEventPublisher events;
     @InjectMocks CaseService service;
 
     private static final LocalDateTime NEXT_WEEK = LocalDateTime.now().plusWeeks(1);
@@ -43,6 +49,7 @@ class CaseServiceTest {
         assertThat(first.caseNumber()).matches("COM/\\d{4}/00001");
         assertThat(second.caseNumber()).matches("LAB/\\d{4}/00002");
         assertThat(first.status()).isEqualTo(CaseStatus.FILED);
+        verify(audit).record(eq("CASE_FILED"), eq("CourtCase"), eq(first.caseNumber()), eq("Contract breach"));
     }
 
     @Test
@@ -73,6 +80,7 @@ class CaseServiceTest {
         assertThat(c.getStatus()).isEqualTo(CaseStatus.SCHEDULED);
         assertThat(c.getHearings()).hasSize(1);
         verify(hearings).save(any());
+        verify(events).publishEvent(new HearingScheduledEvent("CIV/2026/00001", NEXT_WEEK, "Room A"));
     }
 
     @Test
@@ -84,6 +92,7 @@ class CaseServiceTest {
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("already booked");
         verify(hearings, never()).save(any());
+        verifyNoInteractions(events, audit);
     }
 
     @Test

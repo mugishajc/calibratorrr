@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>IECMS mini</title>
+<style>
+  :root { --ink: #1d2330; --muted: #5f6b7a; --line: #dde1e7; --bg: #f6f7f9; --card: #fff; --brand: #1f4e8c; --error: #b00020; }
+  * { box-sizing: border-box; }
+  body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; max-width: 980px; margin: 0 auto; padding: 16px; background: var(--bg); color: var(--ink); }
+  h1 { font-size: 1.4rem; } h2 { font-size: 1.05rem; margin-top: 0; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+  input, select, button { font: inherit; padding: 6px 10px; margin: 4px 4px 4px 0; border: 1px solid var(--line); border-radius: 4px; }
+  button { background: var(--brand); color: #fff; border: 0; cursor: pointer; }
+  button.secondary { background: #e8edf5; color: var(--brand); }
+  table { width: 100%; border-collapse: collapse; } th, td { text-align: left; padding: 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  .table-wrap { overflow-x: auto; }
+  .error { color: var(--error); } .muted { color: var(--muted); } .hidden { display: none; }
+  .stats span { display: inline-block; margin: 0 16px 8px 0; } .stats b { font-size: 1.3rem; display: block; }
+  .bar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
+</style>
+</head>
+<body>
+<h1>IECMS mini — case management</h1>
+
+<div id="login" class="card">
+  <h2>Sign in</h2>
+  <form id="loginForm">
+    <input id="username" placeholder="Username" autocomplete="username" required>
+    <input id="password" type="password" placeholder="Password" autocomplete="current-password" required>
+    <button>Sign in</button>
+  </form>
+  <p class="muted">Demo users: <b>admin</b>, <b>registrar</b>, <b>judge</b>, <b>viewer</b> — password <b>Demo@12345</b></p>
+  <p id="loginError" class="error"></p>
+</div>
+
+<div id="app" class="hidden">
+  <div class="card bar"><span id="who"></span><button id="logout" class="secondary">Sign out</button></div>
+  <div class="card"><h2>Cases per status</h2><div id="stats" class="stats"></div></div>
+  <div class="card" id="fileCard">
+    <h2>File a case</h2>
+    <form id="fileForm">
+      <input id="title" placeholder="Title, e.g. Land dispute" required maxlength="200">
+      <select id="category">
+        <option>CIVIL</option><option>CRIMINAL</option><option>COMMERCIAL</option><option>LABOUR</option><option>ADMINISTRATIVE</option>
+      </select>
+      <button>File case</button>
+    </form>
+  </div>
+  <div class="card">
+    <h2>Cases</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Number</th><th>Title</th><th>Status</th><th>Hearings</th><th>Filed by</th><th>Move to</th></tr></thead>
+        <tbody id="cases"></tbody>
+      </table>
+    </div>
+    <p id="appError" class="error"></p>
+  </div>
+</div>
+
+<script>
+  // Token is kept in memory only (not localStorage), so a script injected by XSS can't read it later
+  let token = null, role = null;
+  const NEXT = { FILED: ['REGISTERED', 'DISMISSED'], REGISTERED: ['SCHEDULED', 'DISMISSED'], SCHEDULED: ['IN_HEARING'],
+                 IN_HEARING: ['SCHEDULED', 'JUDGED'], JUDGED: ['CLOSED'], CLOSED: [], DISMISSED: [] };
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+  async function api(path, options = {}) {
+    const headers = { 'Content-Type': 'application/json' };
+    if (token) headers.Authorization = 'Bearer ' + token;
+    const res = await fetch(path, { ...options, headers });
+    if (res.status === 401 && token) { logout(); throw new Error('Session expired. Please sign in again.'); }
+    const body = res.status === 204 ? null : await res.json().catch(() => null);
+    if (!res.ok) throw new Error(body?.detail || (res.status === 403 ? 'Your role is not allowed to do this.' : 'Request failed (' + res.status + ')'));
+    return body;
+  }
+
+  $('loginForm').onsubmit = async e => {
+    e.preventDefault();
+    $('loginError').textContent = '';
+    try {
+      const t = await api('/api/v1/auth/login', { method: 'POST',
+        body: JSON.stringify({ username: $('username').value.trim(), password: $('password').value }) });
+      token = t.accessToken; role = t.role;
+      $('password').value = '';
+      $('who').textContent = 'Signed in as ' + t.username + ' (' + t.role + ')';
+      $('fileCard').classList.toggle('hidden', !['REGISTRAR', 'ADMIN'].includes(role));
+      $('login').classList.add('hidden');
+      $('app').classList.remove('hidden');
+      refresh();
+    } catch (err) { $('loginError').textContent = err.message; }
+  };
+
+  function logout() {
+    token = null; role = null;
+    $('app').classList.add('hidden');
+    $('login').classList.remove('hidden');
+  }
+  $('logout').onclick = logout;
+
+  async function refresh() {
+    try {
+      const [stats, page] = await Promise.all([api('/api/v1/cases/statistics'), api('/api/v1/cases?size=50&sort=filedAt,desc')]);
+      const entries = Object.entries(stats);
+      $('stats').innerHTML = entries.length
+        ? entries.map(([k, v]) => '<span><b>' + esc(v) + '</b>' + esc(k) + '</span>').join('')
+        : '<span class="muted">No cases yet</span>';
+      const canMove = role !== 'VIEWER';
+      $('cases').innerHTML = page.content.map(c =>
+        '<tr><td>' + esc(c.caseNumber) + '</td><td>' + esc(c.title) + '</td><td>' + esc(c.status) + '</td><td>' + esc(c.hearings) +
+        '</td><td>' + esc(c.createdBy) + '</td><td>' +
+        (canMove ? NEXT[c.status].map(s => '<button class="secondary" data-id="' + esc(c.id) + '" data-status="' + s + '">' + s + '</button>').join('') : '') +
+        '</td></tr>').join('') || '<tr><td colspan="6" class="muted">No cases yet</td></tr>';
+    } catch (err) { $('appError').textContent = err.message; }
+  }
+
+  $('cases').onclick = async e => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    $('appError').textContent = '';
+    try {
+      await api('/api/v1/cases/' + b.dataset.id + '/status', { method: 'PATCH', body: JSON.stringify({ status: b.dataset.status }) });
+      refresh();
+    } catch (err) { $('appError').textContent = err.message; }
+  };
+
+  $('fileForm').onsubmit = async e => {
+    e.preventDefault();
+    $('appError').textContent = '';
+    try {
+      await api('/api/v1/cases', { method: 'POST', body: JSON.stringify({ title: $('title').value, category: $('category').value }) });
+      $('title').value = '';
+      refresh();
+    } catch (err) { $('appError').textContent = err.message; }
+  };
+</script>
+</body>
+</html>

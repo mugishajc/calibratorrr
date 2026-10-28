@@ -6,6 +6,9 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import rw.minijust.iecms.dto.Dtos.*;
 import rw.minijust.iecms.model.CaseStatus;
@@ -22,6 +25,7 @@ public class CaseController {
     }
 
     @PostMapping
+    @PreAuthorize("hasAnyRole('REGISTRAR', 'ADMIN')")
     @ResponseStatus(HttpStatus.CREATED)
     public CaseResponse file(@Valid @RequestBody CreateCaseRequest req) {
         return service.file(req);
@@ -39,11 +43,18 @@ public class CaseController {
     }
 
     @PatchMapping("/{id}/status")
-    public CaseResponse changeStatus(@PathVariable Long id, @Valid @RequestBody ChangeStatusRequest req) {
+    @PreAuthorize("hasAnyRole('REGISTRAR', 'JUDGE', 'ADMIN')")
+    public CaseResponse changeStatus(@PathVariable Long id, @Valid @RequestBody ChangeStatusRequest req,
+                                     Authentication auth) {
+        boolean isJudge = auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_JUDGE"));
+        if (req.status() == CaseStatus.JUDGED && !isJudge) {
+            throw new AccessDeniedException("Only a judge can record a judgment");
+        }
         return service.changeStatus(id, req.status());
     }
 
     @PostMapping("/{id}/hearings")
+    @PreAuthorize("hasAnyRole('REGISTRAR', 'ADMIN')")
     @ResponseStatus(HttpStatus.CREATED)
     public HearingResponse schedule(@PathVariable Long id, @Valid @RequestBody ScheduleHearingRequest req) {
         return service.scheduleHearing(id, req);

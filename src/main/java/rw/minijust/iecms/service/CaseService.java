@@ -4,14 +4,19 @@ import java.time.Year;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import rw.minijust.iecms.audit.AuditService;
 import rw.minijust.iecms.dto.Dtos.*;
 import rw.minijust.iecms.model.CaseStatus;
 import rw.minijust.iecms.model.CourtCase;
 import rw.minijust.iecms.model.Hearing;
+import rw.minijust.iecms.notification.HearingScheduledEvent;
 import rw.minijust.iecms.repository.CaseRepository;
 import rw.minijust.iecms.repository.HearingRepository;
 
@@ -19,19 +24,27 @@ import rw.minijust.iecms.repository.HearingRepository;
 public class CaseService {
     private final CaseRepository cases;
     private final HearingRepository hearings;
+    private final AuditService audit;
+    private final ApplicationEventPublisher events;
     // Demo only: in production use a DB sequence so numbers survive restarts and multiple nodes
     private final AtomicLong sequence = new AtomicLong();
 
-    public CaseService(CaseRepository cases, HearingRepository hearings) {
+    public CaseService(CaseRepository cases, HearingRepository hearings, AuditService audit,
+                       ApplicationEventPublisher events) {
         this.cases = cases;
         this.hearings = hearings;
+        this.audit = audit;
+        this.events = events;
     }
 
     @Transactional
+    @CacheEvict(value = "caseStatistics", allEntries = true)
     public CaseResponse file(CreateCaseRequest req) {
         String number = "%s/%d/%05d".formatted(req.category().substring(0, 3), Year.now().getValue(),
                 sequence.incrementAndGet());
-        return CaseResponse.of(cases.save(new CourtCase(number, req.title(), req.category())));
+        CourtCase saved = cases.save(new CourtCase(number, req.title(), req.category()));
+        audit.record("CASE_FILED", "CourtCase", number, req.title());
+        return CaseResponse.of(saved);
     }
 
     @Transactional(readOnly = true)
@@ -46,13 +59,17 @@ public class CaseService {
     }
 
     @Transactional
+    @CacheEvict(value = "caseStatistics", allEntries = true)
     public CaseResponse changeStatus(Long id, CaseStatus target) {
         CourtCase c = find(id);
+        CaseStatus from = c.getStatus();
         c.moveTo(target); // dirty checking flushes the change at commit
+        audit.record("CASE_STATUS_CHANGED", "CourtCase", c.getCaseNumber(), from + " -> " + target);
         return CaseResponse.of(c);
     }
 
     @Transactional
+    @CacheEvict(value = "caseStatistics", allEntries = true)
     public HearingResponse scheduleHearing(Long id, ScheduleHearingRequest req) {
         CourtCase c = find(id);
         if (hearings.existsByCourtRoomAndScheduledAt(req.courtRoom(), req.scheduledAt())) {
@@ -66,10 +83,13 @@ public class CaseService {
         Hearing h = new Hearing(req.scheduledAt(), req.courtRoom());
         c.addHearing(h);
         hearings.save(h);
+        audit.record("HEARING_SCHEDULED", "CourtCase", c.getCaseNumber(), req.scheduledAt() + " in " + req.courtRoom());
+        events.publishEvent(new HearingScheduledEvent(c.getCaseNumber(), req.scheduledAt(), req.courtRoom()));
         return HearingResponse.of(h);
     }
 
     @Transactional(readOnly = true)
+    @Cacheable("caseStatistics")
     public Map<CaseStatus, Long> statistics() {
         return cases.countByStatus().stream()
                 .collect(Collectors.toMap(CaseRepository.StatusCount::getStatus, CaseRepository.StatusCount::getTotal));

@@ -19,10 +19,10 @@ public final class Dtos {
     public record ScheduleHearingRequest(@NotNull @Future LocalDateTime scheduledAt, @NotBlank String courtRoom) {}
 
     public record CaseResponse(Long id, String caseNumber, String title, String category,
-                               CaseStatus status, Instant filedAt, int hearings) {
+                               CaseStatus status, Instant filedAt, int hearings, String createdBy) {
         public static CaseResponse of(CourtCase c) {
             return new CaseResponse(c.getId(), c.getCaseNumber(), c.getTitle(), c.getCategory(),
-                    c.getStatus(), c.getFiledAt(), c.getHearings().size());
+                    c.getStatus(), c.getFiledAt(), c.getHearings().size(), c.getCreatedBy());
         }
     }
 
