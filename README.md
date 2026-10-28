@@ -2,11 +2,26 @@
 
 A small Spring Boot 3 project for a senior Java developer exam: a court case API, an employee CRUD API, plain JDBC, SQL queries and common coding questions. It runs on an in-memory H2 database, so nothing needs installing beyond Java 21+ and Maven.
 
+## What the project does
+
+A simplified version of a court case management system (like IECMS):
+
+- **File a case.** A clerk submits a title and category (civil, criminal, commercial, labour, administrative). The system gives it a case number such as `CIV/2026/00001` and status `FILED`.
+- **Move the case through its workflow.** `FILED → REGISTERED → SCHEDULED → IN_HEARING → JUDGED → CLOSED`, or `DISMISSED`. Steps cannot be skipped: an illegal move returns HTTP 409.
+- **Schedule hearings.** Adds a hearing date and courtroom to a case. Dates must be in the future, and the same courtroom cannot be booked twice for the same time.
+- **List and search cases.** Paginated, sortable, and filterable by status.
+- **Statistics.** Number of cases per status, a small data-analytics example.
+- **Manage employees.** A basic create, read, update, delete API, the classic "write a CRUD API" exam task.
+- **Safe and consistent.** Input is validated, errors come back in one standard JSON format, and `@Version` stops two users from overwriting each other's changes.
+
+Alongside the API there is exam practice: SQL queries that run on a sample database, short Java coding answers, "what is the output?" questions, and scenario questions with model answers.
+
 ```bash
 mvn test                      # run all tests
 mvn spring-boot:run           # API on http://localhost:8080, Swagger at /swagger-ui.html
 mvn -q compile exec:java -Dexec.mainClass=rw.minijust.iecms.practice.JavaSnippets
 mvn -q compile exec:java -Dexec.mainClass=rw.minijust.iecms.practice.JdbcSqlPractice
+mvn -q compile exec:java -Dexec.mainClass=rw.minijust.iecms.practice.OutputQuestions
 ```
 
 ## What is where
@@ -22,7 +37,9 @@ mvn -q compile exec:java -Dexec.mainClass=rw.minijust.iecms.practice.JdbcSqlPrac
 | Validation with records | `dto/Dtos.java` |
 | CRUD API to write from memory | `employee/` |
 | Short coding questions | `practice/JavaSnippets.java` |
-| JDBC, PreparedStatement, transactions, SQL | `practice/JdbcSqlPractice.java`, `sql/queries.sql` |
+| JDBC, PreparedStatement, transactions, SQL | `practice/JdbcSqlPractice.java`, `sql/queries.sql` (30 queries) |
+| "What is the output?" questions | `practice/OutputQuestions.java`, answers in `docs/JAVA_QUESTIONS.md` |
+| Scenario questions with model answers | `docs/JAVA_QUESTIONS.md` |
 
 ## Sample requests
 
