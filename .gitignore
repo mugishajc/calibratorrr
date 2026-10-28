@@ -1,5 +1,6 @@
 target/
 .idea/
 *.iml
-.vscode/
 .DS_Store
+config.bat
+node_modules
