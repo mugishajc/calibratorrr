@@ -25,22 +25,22 @@ mvn -q compile exec:java -Dexec.mainClass=rw.minijust.iecms.practice.OutputQuest
 | 13 | Method appends to a `StringBuilder`, another method reassigns it | `original changed` | Java passes references by value: you can change the object, not the caller's variable. |
 | 14 | `10/3`, `10%3`, `10/3.0`, `-7/2`, `-7%2` | `3`, `1`, `3.333...`, `-3`, `-1` | Integer division truncates toward zero; the remainder takes the sign of the dividend. |
 | 15 | `String s = null; s.length()` | `NullPointerException` | Guard with a null check or `Optional`. |
-| 16 | `new Child()` order | Parent static → Child static → Parent instance block → Parent constructor → Child instance block → Child constructor | Static blocks run once at class load; parents initialise before children. |
+| 16 | `new Child()` order | Parent static -> Child static -> Parent instance block -> Parent constructor -> Child instance block -> Child constructor | Static blocks run once at class load; parents initialise before children. |
 | 17 | `t.concat(" 21")` without assigning | `Java` | Strings are immutable; `concat` returns a new string. |
 | 18 | `"abc".compareTo("abd")`, `"Java".substring(1, 3)` | `-1`, `av` | `compareTo` returns the character difference; `substring` end index is exclusive. |
 
 ## Part B: Write the code
 
-1. Write a REST API for employees with create, read, update and delete. → `employee/EmployeeController.java`
-2. Write a JDBC method that finds employees earning more than an amount, safe from SQL injection. → `JdbcSqlPractice.findEarningAbove`
-3. Group a list of employees by department and compute average salary with streams. → `JavaSnippets.averageSalaryByDepartment`
-4. Check whether a string is a palindrome, ignoring case and punctuation. → `JavaSnippets.isPalindrome`
-5. Find the second largest number in an array in one pass. → `JavaSnippets.secondLargest`
-6. Count how often each word appears in a text. → `JavaSnippets.wordFrequency`
-7. Write a thread-safe singleton. → `JavaSnippets.Config`
-8. Model a case workflow so a case cannot skip steps (e.g. FILED straight to JUDGED). → `model/CaseStatus.java`
-9. Return a 404 with a clear message when a record is not found, for every endpoint. → `web/ApiExceptionHandler.java`
-10. Prevent two hearings in the same courtroom at the same time. → `CaseService.scheduleHearing`
+1. Write a REST API for employees with create, read, update and delete. -> `employee/EmployeeController.java`
+2. Write a JDBC method that finds employees earning more than an amount, safe from SQL injection. -> `JdbcSqlPractice.findEarningAbove`
+3. Group a list of employees by department and compute average salary with streams. -> `JavaSnippets.averageSalaryByDepartment`
+4. Check whether a string is a palindrome, ignoring case and punctuation. -> `JavaSnippets.isPalindrome`
+5. Find the second largest number in an array in one pass. -> `JavaSnippets.secondLargest`
+6. Count how often each word appears in a text. -> `JavaSnippets.wordFrequency`
+7. Write a thread-safe singleton. -> `JavaSnippets.Config`
+8. Model a case workflow so a case cannot skip steps (e.g. FILED straight to JUDGED). -> `model/CaseStatus.java`
+9. Return a 404 with a clear message when a record is not found, for every endpoint. -> `web/ApiExceptionHandler.java`
+10. Prevent two hearings in the same courtroom at the same time. -> `CaseService.scheduleHearing`
 
 ## Part C: Scenario questions (short model answers)
 

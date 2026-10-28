@@ -2,7 +2,7 @@
 
 Short answers to the questions most often asked in Java developer exams. Code for many of them is in `src/main/java/rw/minijust/iecms/practice/`.
 
-Contents: [1. OOP](#1-object-oriented-programming) · [2. Core Java](#2-core-java) · [3. Data structures and collections](#3-data-structures-and-collections) · [4. Algorithms](#4-algorithms) · [5. Exceptions and multithreading](#5-exceptions-and-multithreading) · [6. SQL theory](#6-sql-theory) · [7. SQL query questions](#7-sql-query-questions) · [8. JPA and Hibernate](#8-jpa-and-hibernate)
+Contents: [1. OOP](#1-object-oriented-programming) | [2. Core Java](#2-core-java) | [3. Data structures and collections](#3-data-structures-and-collections) | [4. Algorithms](#4-algorithms) | [5. Exceptions and multithreading](#5-exceptions-and-multithreading) | [6. SQL theory](#6-sql-theory) | [7. SQL query questions](#7-sql-query-questions) | [8. JPA and Hibernate](#8-jpa-and-hibernate)
 
 ---
 
@@ -92,10 +92,10 @@ A final variable cannot be reassigned; a final method cannot be overridden; a fi
 
 | Modifier | Same class | Same package | Subclass (other package) | Everywhere |
 |---|---|---|---|---|
-| `private` | ✔ | | | |
-| default (none) | ✔ | ✔ | | |
-| `protected` | ✔ | ✔ | ✔ | |
-| `public` | ✔ | ✔ | ✔ | ✔ |
+| `private` | Yes | | | |
+| default (none) | Yes | Yes | | |
+| `protected` | Yes | Yes | Yes | |
+| `public` | Yes | Yes | Yes | Yes |
 
 **19. How do you make a class immutable?**
 Make the class `final`, all fields `private final`, set them in the constructor, provide no setters, and return copies of mutable fields. Or use a `record`.
@@ -179,7 +179,7 @@ Always pass-by-value. For objects, the value passed is a copy of the reference: 
 Lets the compiler infer a local variable's type: `var list = new ArrayList<String>();`. The type is still fixed at compile time.
 
 **41. Key Java 8+ features?**
-Lambdas, functional interfaces, streams, `Optional`, the `java.time` API, default methods (8); `var` (10); `switch` expressions, text blocks, records (14–16); sealed classes, pattern matching (17); virtual threads, record patterns (21).
+Lambdas, functional interfaces, streams, `Optional`, the `java.time` API, default methods (8); `var` (10); `switch` expressions, text blocks, records (14 to 16); sealed classes, pattern matching (17); virtual threads, record patterns (21).
 
 **42. What is a functional interface? Give examples.**
 An interface with exactly one abstract method, so a lambda can implement it. Examples: `Runnable`, `Comparator<T>`, `Function<T,R>`, `Predicate<T>`, `Supplier<T>`, `Consumer<T>`.
@@ -331,20 +331,20 @@ A method that calls itself with a smaller problem until it reaches a base case. 
 Solving a problem by storing the answers of overlapping subproblems so each is computed once, e.g. Fibonacci with a loop or memo is O(n) instead of O(2ⁿ).
 
 **82. Classic interview problems and their usual approach?**
-- Two sum → `HashMap` of seen values (O(n)).
-- Duplicates → `HashSet`.
-- Balanced brackets → stack.
-- Anagram → sort both, or count letters.
-- First unique character → `LinkedHashMap` of counts.
-- Shortest path, unweighted → BFS.
-- Top k items → `PriorityQueue` of size k.
+- Two sum -> `HashMap` of seen values (O(n)).
+- Duplicates -> `HashSet`.
+- Balanced brackets -> stack.
+- Anagram -> sort both, or count letters.
+- First unique character -> `LinkedHashMap` of counts.
+- Shortest path, unweighted -> BFS.
+- Top k items -> `PriorityQueue` of size k.
 
 ---
 
 ## 5. Exceptions and multithreading
 
 **83. Exception hierarchy?**
-`Throwable` → `Error` (serious JVM problems such as `OutOfMemoryError`; don't catch them) and `Exception`. Under `Exception`, `RuntimeException` and its subclasses are unchecked; everything else is checked.
+`Throwable` -> `Error` (serious JVM problems such as `OutOfMemoryError`; don't catch them) and `Exception`. Under `Exception`, `RuntimeException` and its subclasses are unchecked; everything else is checked.
 
 **84. Checked vs unchecked exceptions?**
 Checked exceptions (`IOException`, `SQLException`) must be caught or declared with `throws`. Unchecked exceptions (`NullPointerException`, `IllegalArgumentException`) don't have to be; they usually mean a bug.
@@ -407,7 +407,7 @@ A primary key identifies each row uniquely; there is one per table and it cannot
 - **SELF JOIN:** a table joined to itself (an employee and their manager).
 
 **100. In what order does SQL run a query?**
-`FROM` / `JOIN` → `WHERE` → `GROUP BY` → `HAVING` → `SELECT` → `DISTINCT` → `ORDER BY` → `LIMIT`. That is why you can't use a `SELECT` alias inside `WHERE`.
+`FROM` / `JOIN` -> `WHERE` -> `GROUP BY` -> `HAVING` -> `SELECT` -> `DISTINCT` -> `ORDER BY` -> `LIMIT`. That is why you can't use a `SELECT` alias inside `WHERE`.
 
 **101. `WHERE` vs `HAVING`?**
 `WHERE` filters rows before grouping and can't use aggregates. `HAVING` filters groups after `GROUP BY` and can use `COUNT`, `SUM` and so on.

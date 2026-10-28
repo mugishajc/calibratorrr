@@ -1,4 +1,4 @@
-# IECMS mini — Java exam practice
+# IECMS mini: Java exam practice
 
 [![CI/CD](https://github.com/mugishajc/calibratorrr/actions/workflows/ci.yml/badge.svg)](https://github.com/mugishajc/calibratorrr/actions/workflows/ci.yml)
 
@@ -20,7 +20,7 @@ A simplified court case management system (like IECMS), with a small web page an
   | VIEWER | Read cases and statistics only |
 
 - **File a case.** A registrar submits a title and category (civil, criminal, commercial, labour, administrative). The system gives it a number such as `CIV/2026/00001` and status `FILED`, and records who filed it.
-- **Move the case through its workflow.** `FILED → REGISTERED → SCHEDULED → IN_HEARING → JUDGED → CLOSED`, or `DISMISSED`. Steps cannot be skipped: an illegal move returns HTTP 409.
+- **Move the case through its workflow.** `FILED -> REGISTERED -> SCHEDULED -> IN_HEARING -> JUDGED -> CLOSED`, or `DISMISSED`. Steps cannot be skipped: an illegal move returns HTTP 409.
 - **Schedule hearings.** Dates must be in the future, and a courtroom cannot be booked twice at the same time. After the booking is saved, an event notifies the parties in the background (logged here; SMS or email in production).
 - **List, search and statistics.** Paginated, sortable, filterable by status; counts per status are cached and refreshed whenever a case changes.
 - **Audit trail.** Every login, failed login, case filed, status change, hearing and new user is recorded with who did it and when. Admins can read it; nobody can edit it.
@@ -61,7 +61,7 @@ To use another port: `mvn spring-boot:run -Dspring-boot.run.arguments=--server.p
    - `admin`: can do everything
    - `viewer`: can only look
 3. As **registrar**, type a title, choose a category and click **File case**. The case appears in the table and the counts update.
-4. Use the buttons in the **Move to** column to move a case: `REGISTERED` → `SCHEDULED` → `IN_HEARING`.
+4. Use the buttons in the **Move to** column to move a case: `REGISTERED` -> `SCHEDULED` -> `IN_HEARING`.
 5. Try `JUDGED` as the registrar: you get "Your role is not allowed to do this." Click **Sign out**, sign in as **judge**, and the same button works.
 6. Sign in as **viewer**: you can see everything but there are no buttons and no filing form.
 
