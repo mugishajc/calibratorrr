@@ -32,4 +32,37 @@ class CaseApiTest {
     void unknownCaseReturns404() throws Exception {
         mvc.perform(get("/api/v1/cases/9999")).andExpect(status().isNotFound());
     }
+
+    @Test
+    void fullCaseLifecycle() throws Exception {
+        String body = mvc.perform(post("/api/v1/cases").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\":\"Land dispute\",\"category\":\"CIVIL\"}"))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        String id = body.replaceAll(".*\"id\":(\\d+).*", "$1");
+
+        mvc.perform(patch("/api/v1/cases/" + id + "/status").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":\"REGISTERED\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("REGISTERED"));
+
+        String hearing = "{\"scheduledAt\":\"2099-01-15T09:00:00\",\"courtRoom\":\"Room " + id + "\"}";
+        mvc.perform(post("/api/v1/cases/" + id + "/hearings").contentType(MediaType.APPLICATION_JSON).content(hearing))
+                .andExpect(status().isCreated());
+        // same room, same time: double booking is refused
+        mvc.perform(post("/api/v1/cases/" + id + "/hearings").contentType(MediaType.APPLICATION_JSON).content(hearing))
+                .andExpect(status().isConflict());
+
+        mvc.perform(get("/api/v1/cases/" + id))
+                .andExpect(jsonPath("$.status").value("SCHEDULED"))
+                .andExpect(jsonPath("$.hearings").value(1));
+
+        mvc.perform(get("/api/v1/cases").param("status", "SCHEDULED"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].status").value("SCHEDULED"));
+
+        mvc.perform(get("/api/v1/cases/statistics"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.SCHEDULED").isNumber());
+    }
 }

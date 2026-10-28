@@ -1,5 +1,7 @@
 # IECMS mini — Java exam practice
 
+[![CI/CD](https://github.com/mugishajc/calibratorrr/actions/workflows/ci.yml/badge.svg)](https://github.com/mugishajc/calibratorrr/actions/workflows/ci.yml)
+
 A small Spring Boot 3 project for a senior Java developer exam: a court case API, an employee CRUD API, plain JDBC, SQL queries and common coding questions. It runs on an in-memory H2 database, so nothing needs installing beyond Java 21+ and Maven.
 
 ## What the project does
@@ -17,7 +19,7 @@ A simplified version of a court case management system (like IECMS):
 Alongside the API there is exam practice: SQL queries that run on a sample database, short Java coding answers, "what is the output?" questions, and scenario questions with model answers.
 
 ```bash
-mvn test                      # run all tests
+mvn verify                    # run all tests + coverage check (70% minimum)
 mvn spring-boot:run           # API on http://localhost:8080, Swagger at /swagger-ui.html
 mvn -q compile exec:java -Dexec.mainClass=rw.minijust.iecms.practice.JavaSnippets
 mvn -q compile exec:java -Dexec.mainClass=rw.minijust.iecms.practice.JdbcSqlPractice
@@ -40,6 +42,48 @@ mvn -q compile exec:java -Dexec.mainClass=rw.minijust.iecms.practice.OutputQuest
 | JDBC, PreparedStatement, transactions, SQL | `practice/JdbcSqlPractice.java`, `sql/queries.sql` (30 queries) |
 | "What is the output?" questions | `practice/OutputQuestions.java`, answers in `docs/JAVA_QUESTIONS.md` |
 | Scenario questions with model answers | `docs/JAVA_QUESTIONS.md` |
+| 125 questions and answers: OOP, core Java, data structures, algorithms, threads, SQL, JPA | `docs/QUESTIONS_AND_ANSWERS.md` |
+| Stack, queue, linked list, BST, LRU cache, binary search, sorting, BFS | `practice/DataStructures.java` |
+
+## Testing
+
+56 tests, about 94% line coverage. The build fails below 70%.
+
+| Level | What it checks | Example |
+|---|---|---|
+| Unit (no Spring, mocks) | Business rules in isolation, runs in milliseconds | `service/CaseServiceTest` with Mockito |
+| Parameterized | Every allowed and forbidden status change from one table | `CaseStatusTest.transitionRules` |
+| Web slice (`@WebMvcTest`) | HTTP status codes, validation, error format; service mocked | `web/CaseControllerTest` |
+| Integration (`@SpringBootTest`) | Full flow through controller, service, JPA and database | `CaseApiTest.fullCaseLifecycle`, `EmployeeApiTest` |
+| Data | Each practice SQL query returns the expected rows | `practice/SqlQueriesTest` |
+
+## CI/CD
+
+GitHub Actions (`.github/workflows/ci.yml`):
+
+1. **On every push and pull request:** build with Java 21, run all tests, enforce the coverage gate, and upload the test reports, coverage report and jar.
+2. **On push to `main` only, after tests pass:** build the Docker image (multi-stage, runs as a non-root user) and publish it to GitHub Container Registry as `ghcr.io/mugishajc/calibratorrr:latest` plus a commit-SHA tag.
+
+Dependabot opens weekly pull requests for Maven and GitHub Actions updates. A health endpoint is at `/actuator/health` for load balancers and Kubernetes probes.
+
+```bash
+docker run -p 8080:8080 ghcr.io/mugishajc/calibratorrr:latest
+```
+
+## What should be done next
+
+To take this from a demo to production:
+
+1. **Security.** Add Spring Security with JWT or OAuth2/Keycloak and roles (registrar, judge, lawyer, public). Protect every endpoint and restrict who can change a case's status.
+2. **Real database and migrations.** Move from in-memory H2 to PostgreSQL or MySQL, and manage the schema with Flyway instead of `ddl-auto=update`. Use a database sequence for case numbers so they survive restarts and work across several servers.
+3. **Audit trail.** Record who viewed or changed each case and when (Hibernate Envers or an audit table). Essential for confidential court data.
+4. **Parties and documents.** Add plaintiffs, defendants and lawyers (verified through NIDA), and document upload stored in object storage.
+5. **Integration tests on the real database.** Use Testcontainers so tests run against the same database as production.
+6. **Deployment stage.** Add a deploy job to staging, then production with a manual approval (GitHub Environments), and zero-downtime rollout.
+7. **Code quality and security scanning.** SonarQube or SpotBugs, Checkstyle, and OWASP dependency-check or GitHub CodeQL in the pipeline.
+8. **Observability.** Structured JSON logs, metrics with Micrometer and Prometheus, dashboards in Grafana, and alerts on errors and slow requests.
+9. **Frontend.** A React or Angular app for clerks and judges, calling this API.
+10. **Notifications.** SMS or email to parties when a hearing is scheduled or moved, sent asynchronously through a message queue.
 
 ## Sample requests
 

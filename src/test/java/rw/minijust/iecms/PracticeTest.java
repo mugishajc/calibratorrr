@@ -29,6 +29,12 @@ class PracticeTest {
     }
 
     @Test
+    void demoProgramsRunWithoutErrors() {
+        assertDoesNotThrow(() -> rw.minijust.iecms.practice.JavaSnippets.main(new String[0]));
+        assertDoesNotThrow(() -> rw.minijust.iecms.practice.OutputQuestions.main(new String[0]));
+    }
+
+    @Test
     void allSqlQueriesRun() {
         assertDoesNotThrow(() -> JdbcSqlPractice.main(new String[0]));
     }
