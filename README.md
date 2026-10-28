@@ -48,9 +48,25 @@ cd calibratorrr
 mvn spring-boot:run
 ```
 
-Wait until the log shows `Started IecmsApplication`. The app is now on **http://localhost:8080**. Stop it with `Ctrl+C`.
+Wait until the log shows `Started IecmsApplication`. The app is now on **http://localhost:8080**.
 
-To use another port: `mvn spring-boot:run -Dspring-boot.run.arguments=--server.port=9090`
+### Start and stop commands
+
+| What | Command |
+|---|---|
+| Start (in the terminal, shows logs) | `mvn spring-boot:run` |
+| Stop it | Press `Ctrl+C` in that terminal |
+| Build a runnable jar | `mvn -DskipTests package` |
+| Start the jar | `java -jar target/iecms-mini-0.1.0.jar` |
+| Start the jar in the background, logs to `app.log` | `nohup java -jar target/iecms-mini-0.1.0.jar > app.log 2>&1 &` |
+| Follow the background logs | `tail -f app.log` |
+| Stop the background app | `pkill -f iecms-mini-0.1.0.jar` |
+| Check it is running | `curl localhost:8080/actuator/health` (shows `"status":"UP"`) |
+| Start on another port | `mvn spring-boot:run -Dspring-boot.run.arguments=--server.port=9090` or `java -jar target/iecms-mini-0.1.0.jar --server.port=9090` |
+
+**"Port 8080 was already in use"?** Something else is on that port. On macOS or Linux, see what with `lsof -i :8080`, stop it with `kill <PID>` (the PID is in the second column), or start this app on another port as shown above. On Windows: `netstat -ano | findstr :8080`, then `taskkill /PID <PID> /F`.
+
+Data is kept in memory, so stopping the app clears all cases. The demo users are created again on the next start.
 
 ### 3. Use the web page (frontend)
 
