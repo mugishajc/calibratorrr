@@ -16,6 +16,8 @@ at. Run the whole thing, then read the code of one lesson at a time.
 
 Run:  ./run.sh            (or: python case_analytics.py --pause  to keep the Spark UI open)
 """
+import utils.transport
+import utils.session
 import argparse
 import os
 import sys
