@@ -201,14 +201,60 @@ Or use the image built by CI: `ghcr.io/mugishajc/calibratorrr:latest`.
 
 ## Big data analytics with Apache Spark
 
-`analytics/` is a separate PySpark lab on IECMS-shaped data: 300,000 generated court cases and about 600,000 hearings. It is written as ten short lessons: lazy evaluation, RDD vs DataFrame vs SQL, narrow and wide transformations, caching, broadcast joins, data skew and salting, nulls, window functions, and partitioned Parquet with predicate pushdown. It runs entirely on your laptop in Spark local mode; you need Python 3.12 and Java 17 or 21.
+`analytics/` is a separate PySpark lab on IECMS-shaped data: 300,000 generated court cases and about 600,000 hearings. It is written as ten short lessons: lazy evaluation, RDD vs DataFrame vs SQL, narrow and wide transformations, caching, broadcast joins, data skew and salting, nulls, window functions, and partitioned Parquet with predicate pushdown. It runs entirely on your laptop in Spark local mode: no cluster, no Docker, and the Java app does not need to be running.
+
+### 1. Install the prerequisites
+
+| Need | Check with | Notes |
+|---|---|---|
+| Python 3.12 | `python3.12 --version` | macOS: `brew install python@3.12` |
+| Java 17 or 21 | `/usr/libexec/java_home -V` (macOS) or `java -version` | Spark 4 does not run on Java 25. Having 17 installed next to a newer Java is fine; `run.sh` picks 17. |
+| About 1 GB free disk | `df -h ~` | PySpark is about 460 MB; the generated data is about 60 MB |
+
+### 2. Run it (one command)
 
 ```bash
 cd analytics
-./run.sh --pause      # runs the lessons, then keeps the Spark UI open at http://localhost:4040
+./run.sh --pause
 ```
 
-See [`analytics/README.md`](analytics/README.md) for the lesson list, what to look at in the Spark UI, and exercises.
+The first run takes a few minutes: it creates a Python virtual environment in `analytics/.venv`, installs PySpark, and generates the data in `analytics/data/raw`. Later runs start in seconds.
+
+The ten lessons print in the terminal (about 20 seconds). Then it waits, so you can explore the **Spark UI at http://localhost:4040**. Press **Enter** (or `Ctrl+C`) to stop Spark. Without `--pause` it just runs the lessons and exits.
+
+### 3. Or run it step by step
+
+```bash
+cd analytics
+python3.12 -m venv .venv
+.venv/bin/pip install -r requirements.txt
+.venv/bin/python generate_data.py                     # add --cases 1000000 for more data
+export JAVA_HOME=$(/usr/libexec/java_home -v 17)      # Linux: point JAVA_HOME at a JDK 17 or 21
+.venv/bin/python case_analytics.py --pause
+```
+
+On Windows, use `py -3.12 -m venv .venv`, `.venv\Scripts\python` instead of `.venv/bin/python`, and set `JAVA_HOME` to your JDK 17 folder.
+
+### 4. What you get
+
+| Where | What |
+|---|---|
+| Terminal | Each lesson's result and the query plans to read (`Exchange` = shuffle, `BroadcastHashJoin`, `PushedFilters`) |
+| http://localhost:4040 | Jobs, Stages (find the skewed task from lesson 7), Storage, SQL plan graphs. Only open while Spark is running. |
+| `analytics/data/curated/backlog/` | Open cases as Parquet, one folder per category |
+| `analytics/data/curated/backlog_summary/` | One small CSV, the kind of file a dashboard would read |
+
+### 5. If something goes wrong
+
+| Problem | Fix |
+|---|---|
+| `UnsupportedClassVersionError`, or Java errors at start | Spark is using the wrong Java. Install JDK 17 and set `JAVA_HOME` as in step 3. |
+| `TypeError: unsupported operand type(s) for \|` from a Python worker | The workers picked up an old Python. `case_analytics.py` sets `PYSPARK_PYTHON` itself; run it with `.venv/bin/python`, not the system `python3`. |
+| `No space left on device` while installing | Free at least 1 GB; `pip3 cache purge` often frees a lot. |
+| http://localhost:4040 does not open | Spark is not running. Run with `--pause`. If port 4040 is taken, Spark uses 4041 and prints the address. |
+| `No data yet` | Run `.venv/bin/python generate_data.py` (or use `./run.sh`, which does it for you). |
+
+See [`analytics/README.md`](analytics/README.md) for the lesson list with slide references, what to look at in each Spark UI tab, and six exercises.
 
 ## Testing
 
