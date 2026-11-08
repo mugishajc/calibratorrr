@@ -197,6 +197,18 @@ Or use the image built by CI: `ghcr.io/mugishajc/calibratorrr:latest`.
 | 30 SQL queries | `sql/queries.sql` |
 | 125 questions and answers: OOP, core Java, data structures, algorithms, threads, SQL, JPA | `docs/QUESTIONS_AND_ANSWERS.md` |
 | Output questions, write-the-code tasks, scenario questions | `docs/JAVA_QUESTIONS.md` |
+| Big data analytics on court cases with Apache Spark | `analytics/` |
+
+## Big data analytics with Apache Spark
+
+`analytics/` is a separate PySpark lab on IECMS-shaped data: 300,000 generated court cases and about 600,000 hearings. It is written as ten short lessons: lazy evaluation, RDD vs DataFrame vs SQL, narrow and wide transformations, caching, broadcast joins, data skew and salting, nulls, window functions, and partitioned Parquet with predicate pushdown. It runs entirely on your laptop in Spark local mode; you need Python 3.12 and Java 17 or 21.
+
+```bash
+cd analytics
+./run.sh --pause      # runs the lessons, then keeps the Spark UI open at http://localhost:4040
+```
+
+See [`analytics/README.md`](analytics/README.md) for the lesson list, what to look at in the Spark UI, and exercises.
 
 ## Testing
 

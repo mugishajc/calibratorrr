@@ -4,3 +4,10 @@ target/
 .vscode/
 .DS_Store
 *.log
+
+# Spark lab (analytics/)
+analytics/.venv/
+analytics/data/
+spark-warehouse/
+metastore_db/
+__pycache__/
