@@ -1,7 +1,6 @@
 target/
 .idea/
 *.iml
-.vscode/
 .DS_Store
 *.log
 
@@ -11,3 +10,5 @@ analytics/data/
 spark-warehouse/
 metastore_db/
 __pycache__/
+config.bat
+node_modules
